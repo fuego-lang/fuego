@@ -1,36 +1,162 @@
 @@grammar::Fuego
 
-
-start
-    =
-    expression $
+comment
+    = '#' [^]+ '\n'
     ;
 
+name
+    = /[a-zA-Z_][a-zA-Z_0-9]*/
+    ;
+
+exttype
+    = name
+    | '^' name
+    | '[]' name
+    | '[' size:integer ']' name
+    ;
+
+operatornames
+    = '+'
+    | '-'
+    | '*'
+    | '/'
+    | '%'
+    ;
+
+lefthandoperators
+    = '@'
+    | '&'
+    ;
+
+inlineoperators
+    = ':'
+    | ':='
+    | '.'
+    ;
+
+annotation
+    = '!' directive:name [ '(' params:parameters ')' ]
+    ;
+
+parameters
+    = parameters = ','%{ param:declaration } [,]
+    ;
+
+package
+    = 'package ' package:name
+    ;
+
+integer
+    = /[0-9_]+/
+    ;
+
+char
+    = '\'' ([^] | '\\\'') '\''
+    ;
+
+string
+    = '"' { [^] | '\\\"' }+ '"'
+    ;
+
+access
+    = variable:name
+    | member:(name { '.' name }+)
+    ;
+
+declaration
+    = variable:name ':' type:exttpye
+    ;
+
+param
+    = variable:name ':' type:exttype
+    ;
+
+functioncall
+    = '(' function:(name | operator) { operableexpression }+ ')'
+    ;
+
+assignment
+    = (variable:access | functioncall) '=' value:operableexpression
+    ;
+
+initialization
+    = variable:name ':' { type:exttpye } '=' value:operableexpression
+    ;
+
+compiletime
+    = [ ';'%{ directives:annotation } ] variable:name ':' { type:exttpye } ':' value:(integer | char | string | construct)
+    ;
+
+range
+    = start:integer '..' end:integer [ ':' step:integer ]
+    ;
+
+instmt
+    = var:name 'in' (collection:name | rangecol:range)
+    ;
 
 expression
-    =
-    | left:expression op:'+' ~ right:term
-    | left:expression op:'-' ~ right:term
-    | term
+    = functioncall
+    | declaration
+    | assignment
+    | initialization
+    ;
+
+operableexpression
+    = functioncall
+    | access
+    ;
+
+ifstmt
+    = 'if' (in:instmt | call:functioncall | val:access) body:scope
+      [ elifs:{ 'elif' (in:instmt | call:functioncall | val:access) }+ ]
+      [ else:('else' body:scope) ]
     ;
 
 
-term
-    =
-    | left:term op:'*' ~ right:factor
-    | left:term '/' ~ right:factor
-    | factor
+scope
+    = '{' ';'%{ expressions:expression } '}'
     ;
 
-
-factor
-    =
-    | '(' ~ @:expression ')'
-    | number
+struct
+    = 'struct' '{' ','%{ members:declaration } [,] '}'
     ;
 
+enum
+    = 'enum' [ type:name ] '{' ','%{ values:name } [,] '}'
+    ;
 
-number
-    =
-    /\d+/
+union
+    = 'union' '{' ','%{ types:exttpye } [,] '}'
+    ;
+
+purereturnval
+    = return:name
+    | '(' ','%{ returns:name } [,] ')'
+    ;
+
+returnval
+    = return:exttpye
+    | '(' ','%{ returns:exttpye } [,] ')'
+    ;
+
+proc
+    = 'proc' '(' ','%{ params:param } [,] ')' '->' return:returnval body:scope
+    ;
+
+func
+    = 'func' '(' ','%{ params:declaration } [,] ')' '->' return:purereturnval body:scope
+
+construct
+    = struct
+    | enum
+    | union
+    | proc
+    | func
+    ;
+
+topleveldefinition
+    = annotations:[ { annotation } ] declaration
+    | annotations:[ { annotation } ] initialization
+    | annotations:[ { annotation } ] compiletime
     ;
